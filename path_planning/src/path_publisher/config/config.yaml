@@ -1,0 +1,16 @@
+path_publisher:
+  ros__parameters:
+    timer_period: 1.0
+
+    track:
+      chosen: 1
+      random: false
+
+    # Dimensions according to FSG rules
+    cone_dimensions:
+      regular:
+        radius: 0.114
+        height: 0.325
+      large:
+        radius: 0.1425
+        height: 0.505
