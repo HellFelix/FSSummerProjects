@@ -10,7 +10,7 @@ from nav_msgs.msg import Path
 from rclpy.node import Node
 from rclpy.time import Duration
 from std_msgs.msg import ColorRGBA
-from rclpy.qos import QoSProfile, qos_profile_sensor_data
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from visualization_msgs.msg import Marker, MarkerArray
 
 
@@ -22,7 +22,11 @@ class PathPublisher(Node):
         self._cone_publisher: Publisher
         self._path_publisher: Publisher
         self._pub_timer: rclpy.timer.Timer
-        self._qos: QoSProfile = qos_profile_sensor_data
+        self._qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE
+        )
 
         # Declare parameters
         self.declare_parameter("timer_period", value=5.0)

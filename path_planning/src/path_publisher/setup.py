@@ -14,7 +14,7 @@ setup(
         (os.path.join("share", package_name, "config"), glob("*/config.yaml")),
         (os.path.join("share", package_name, "tracks"), glob("*/*.csv")),
     ],
-    install_requires=["setuptools"],
+    install_requires=["setuptools", "pandas"],
     zip_safe=True,
     maintainer="leonid",
     maintainer_email="pototskiy.leonid@gmail.com",
