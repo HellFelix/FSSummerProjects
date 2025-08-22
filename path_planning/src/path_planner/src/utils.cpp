@@ -1,3 +1,6 @@
+#include "utils.hpp"
+#include "shorthand.hpp"
+
 #include <cmath>
 #include <cstdlib>
 #include <geometry_msgs/msg/detail/point__struct.hpp>
@@ -5,7 +8,6 @@
 #include <geometry_msgs/msg/detail/vector3__struct.hpp>
 #include <stdexcept>
 
-#include "shorthand.hpp"
 using namespace geometry_msgs::msg;
 
 const double eps = 1e-10;
@@ -29,6 +31,15 @@ Vector3 into_vec(const Point input) {
   return res;
 }
 
+Point into_point(const Vector3 input) {
+  Point res = Point();
+  res.set__x(input.x);
+  res.set__y(input.y);
+  res.set__z(input.z);
+
+  return res;
+}
+
 double length(const Vector3 v) {
   return std::sqrt(pow(v.x, 2) + pow(v.y, 2) + pow(v.z, 2));
 }
@@ -38,18 +49,9 @@ Vector3 normalize(const Vector3 v) {
   return Vec3(v.x / l, v.y / l, v.z / l);
 }
 
-// v1-v2
-Vector3 diff(const Vector3 v1, const Vector3 v2) {
-  return Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
-}
-
-double dot(const Vector3 v1, const Vector3 v2) {
-  return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
-
 // Difference Vector pointing from p1 to p2
 Vector3 diff(const Point p1, const Point p2) {
-  return diff(into_vec(p1), into_vec(p2));
+  return sub(into_vec(p1), into_vec(p2));
 }
 
 Quaternion rotation(const Point p1, const Point p2, const Point p3) {
@@ -60,7 +62,7 @@ Quaternion rotation(const Point p1, const Point p2, const Point p3) {
   Vector3 b = normalize(v2);
 
   if (length(v1) < eps || length(v2) < eps)
-    throw std::runtime_error{"Undefined Quaternion"};
+    return Quat(0, 0, 0, 1);
 
   // equals cos(theta)
   double c = dot(a, b);

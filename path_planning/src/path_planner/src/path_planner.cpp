@@ -15,6 +15,7 @@
 #include <visualization_msgs/msg/detail/marker__struct.hpp>
 #include <visualization_msgs/msg/detail/marker_array__struct.hpp>
 
+#include "catmull_rom_spline.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "shorthand.hpp"
 #include "utils.hpp"
@@ -27,26 +28,43 @@ using namespace visualization_msgs::msg;
 using namespace nav_msgs::msg;
 using namespace std_msgs::msg;
 
-Path into_path(const std::vector<Point> &points) {
+MarkerArray as_markers(std::vector<Point> points) {
+  std::vector<Marker> markers;
 
-  auto poses = std::vector<PoseStamped>();
+  int id = 0;
+  for (Point p : points) {
+    Marker m = Marker();
 
-  for (ulong i = 0; i < points.size(); i++) {
-    Point prev = (i == 0) ? points.back() : points.at(i - 1);
-    Point current = points.at(i);
-    Point next = (i == points.size() - 1) ? points.at(0) : points.at(i + 1);
+    Pose pose = Pose();
+    pose.set__position(p);
+    m.set__pose(pose);
 
-    Quaternion rot = rotation(prev, current, next);
-    Pose pose = new_pose(current, rot);
+    m.header.frame_id = "map";
+    m.ns = "path";
+    m.type = Marker::SPHERE;
+    m.action = Marker::ADD;
+    m.set__id(id);
+    id++;
 
-    Header header = Header();
-    header.set__frame_id("map");
-    PoseStamped stamped = new_pose_stamped(header, pose);
-    poses.push_back(stamped);
+    std_msgs::msg::ColorRGBA color = std_msgs::msg::ColorRGBA();
+    color.set__a(1);
+    color.set__r(255);
+    color.set__g(0);
+    color.set__b(0);
+    m.set__color(color);
+
+    Vector3 scale = Vector3();
+    scale.set__x(1);
+    scale.set__y(1);
+    scale.set__z(1);
+    m.scale = scale;
+
+    markers.push_back(m);
   }
-  Header header = Header();
-  header.set__frame_id("map");
-  return new_path(header, poses);
+
+  MarkerArray res = MarkerArray();
+  res.set__markers(markers);
+  return res;
 }
 
 class MinimalSubscriber : public rclcpp::Node {
@@ -56,7 +74,9 @@ public:
         "/cones", 10,
         std::bind(&MinimalSubscriber::subscription_callback, this, _1));
 
-    publisher_ = this->create_publisher<Path>("/path/global", 10);
+    auto qos =
+        rclcpp::QoS(rclcpp::KeepLast(1)).reliable().durability_volatile();
+    publisher_ = this->create_publisher<Path>("/path/global", qos);
   }
 
 private:
@@ -109,6 +129,36 @@ private:
     return closest_marker;
   }
 
+  Path into_path(const std::vector<Point> &points) const {
+    auto poses = std::vector<PoseStamped>();
+
+    Header header = Header();
+    header.set__frame_id("map");
+    header.set__stamp(this->now());
+
+    for (ulong i = 0; i < points.size(); i++) {
+      Point prev = (i == 0) ? points.back() : points[i - 1];
+      Point current = points[i];
+      Point next = (i == points.size() - 1) ? points[0] : points[i + 1];
+
+      Quaternion rot = rotation(prev, current, next);
+
+      Pose pose = new_pose(current, rot);
+
+      PoseStamped stamped = new_pose_stamped(header, pose);
+      poses.push_back(stamped);
+    }
+
+    // Close loop by repeating first pose at the end
+    // I couldn't find another way of closing the loop. The path doesn't seem to
+    // want to connect to itself...
+    if (!poses.empty()) {
+      poses.push_back(poses.front());
+    }
+
+    return new_path(header, poses);
+  }
+
   void subscription_callback(const MarkerArray &msg) const {
     RCLCPP_INFO(this->get_logger(), "I heard array of size: '%ld'",
                 msg.markers.size());
@@ -123,33 +173,12 @@ private:
 
         Point midpoint = find_mid(m, closest_inner);
 
-        // midpoint.header.frame_id = "map";
-        // midpoint.ns = "path";
-        // midpoint.type = Marker::SPHERE;
-        // midpoint.action = Marker::ADD;
-        // midpoint.set__id(id);
-        // id++;
-        //
-        // std_msgs::msg::ColorRGBA color = std_msgs::msg::ColorRGBA();
-        // color.set__a(1);
-        // color.set__r(255);
-        // color.set__g(0);
-        // color.set__b(0);
-        // midpoint.set__color(color);
-        //
-        // Vector3 scale = Vector3();
-        // scale.set__x(1);
-        // scale.set__y(1);
-        // scale.set__z(1);
-        // midpoint.scale = scale;
-
         centerline_vec.push_back(midpoint);
       }
     }
 
-    // Path centerline_path = ;
-    // centerline.set__markers(centerline_vec);
-    publisher_->publish(into_path(centerline_vec));
+    std::vector<Point> smoothed_vec = sample_catmull_rom(centerline_vec);
+    publisher_->publish(this->into_path(smoothed_vec));
   }
 
   rclcpp::Subscription<MarkerArray>::SharedPtr subscription_;

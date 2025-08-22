@@ -18,6 +18,7 @@ add_executable(path_planner
   src/path_planner.cpp
   src/shorthand.cpp
   src/utils.cpp
+  src/catmull_rom_spline.cpp
 )
 ament_target_dependencies(path_planner rclcpp std_msgs geometry_msgs nav_msgs visualization_msgs)
 
